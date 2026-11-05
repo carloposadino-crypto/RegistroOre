@@ -5,7 +5,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#172d26">
+<meta name="description" content="Registro personale delle ore di lavoro">
 <title>Registro Ore</title>
+
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#f2f5f3;color:#202923;font-family:Arial,sans-serif}
@@ -16,7 +18,7 @@ main{max-width:650px;margin:auto;padding:15px}
 .card{background:white;padding:17px;border-radius:14px;margin-bottom:15px;box-shadow:0 2px 9px #0000000c}
 h2{font-size:18px;margin:0 0 15px}
 label{display:block;font-size:13px;font-weight:bold;margin:12px 0 6px}
-input,select,textarea{width:100%;padding:12px;border:1px solid #ccd5cf;border-radius:8px;font-size:16px;background:white}
+input,textarea{width:100%;padding:12px;border:1px solid #ccd5cf;border-radius:8px;font-size:16px;background:white}
 button{border:0;border-radius:9px;padding:12px 15px;font-size:14px;font-weight:bold;cursor:pointer}
 .primary{background:#197344;color:white;width:100%;margin-top:15px}
 .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -32,20 +34,30 @@ button{border:0;border-radius:9px;padding:12px 15px;font-size:14px;font-weight:b
 .entry button{padding:7px 10px;margin-left:4px;background:#edf1ee}
 .danger{color:#b3261e!important}
 .muted{color:#718077;font-size:13px}
-.hidden{display:none}
+.hidden{display:none!important}
+.status{font-size:12px;color:#c8d9ce;margin-top:8px}
+@media(min-width:600px){
+main{padding:22px}
+}
 </style>
 </head>
+
 <body>
+
 <header>
 <h1>⏱ Registro Ore</h1>
 <p>Il tuo registro personale di lavoro</p>
+<div class="status" id="connectionStatus">Controllo connessione...</div>
 </header>
 
 <main>
+
 <section class="card">
 <h2>Nuova registrazione</h2>
+
 <form id="workForm">
 <input type="hidden" id="editId">
+
 <label>Data</label>
 <input type="date" id="date" required>
 
@@ -61,60 +73,115 @@ button{border:0;border-radius:9px;padding:12px 15px;font-size:14px;font-weight:b
 <label>Note</label>
 <textarea id="notes" rows="2" placeholder="Facoltativo"></textarea>
 
-<button class="primary" type="submit" id="saveButton">SALVA REGISTRAZIONE</button>
-<button type="button" class="primary hidden" id="cancelEdit">ANNULLA MODIFICA</button>
+<button class="primary" type="submit" id="saveButton">
+SALVA REGISTRAZIONE
+</button>
+
+<button type="button" class="primary hidden" id="cancelEdit">
+ANNULLA MODIFICA
+</button>
 </form>
 </section>
 
 <section class="card">
 <h2>Riepilogo mensile</h2>
+
 <label>Seleziona mese</label>
 <input type="month" id="month">
+
 <div class="stats" style="margin-top:15px">
-<div class="stat"><span>Giorni lavorati</span><strong id="days">0</strong></div>
-<div class="stat"><span>Ore totali</span><strong id="total">0:00</strong></div>
-<div class="stat"><span>Straordinari</span><strong id="overtime">0:00</strong></div>
-<div class="stat"><span>Media giornaliera</span><strong id="average">0:00</strong></div>
+<div class="stat">
+<span>Giorni lavorati</span>
+<strong id="days">0</strong>
+</div>
+
+<div class="stat">
+<span>Ore totali</span>
+<strong id="total">0:00</strong>
+</div>
+
+<div class="stat">
+<span>Straordinari</span>
+<strong id="overtime">0:00</strong>
+</div>
+
+<div class="stat">
+<span>Media giornaliera</span>
+<strong id="average">0:00</strong>
+</div>
 </div>
 </section>
 
 <section class="card">
 <h2>Impostazioni straordinari</h2>
+
 <label>Ore settimanali ordinarie</label>
 <input type="number" id="weeklyLimit" min="1" max="168" value="40">
-<p class="muted">Gli straordinari vengono calcolati sulle ore che superano questa soglia nella settimana.</p>
+
+<p class="muted">
+Gli straordinari vengono calcolati sulle ore che superano
+questa soglia nella settimana.
+</p>
 </section>
 
 <section class="card">
 <h2>Esporta i dati</h2>
+
 <div class="actions">
 <button type="button" id="excel">📊 Excel XLSX</button>
 <button type="button" id="csv">📄 CSV</button>
 <button type="button" id="pdf">🖨 PDF / Stampa</button>
 <button type="button" id="backup">💾 Backup JSON</button>
 </div>
-<p class="muted">Per Excel serve una connessione al primo caricamento della libreria. La registrazione delle ore funziona anche offline.</p>
+
+<p class="muted">
+Il backup JSON permette di conservare una copia dei dati.
+</p>
 </section>
 
 <section class="card">
 <h2>Registro delle giornate</h2>
 <div id="entries"></div>
-<p id="empty" class="muted">Nessuna registrazione per questo mese.</p>
+<p id="empty" class="muted">
+Nessuna registrazione per questo mese.
+</p>
 </section>
+
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
 <script>
+"use strict";
+
 const $ = id => document.getElementById(id);
+
 const KEY = "registroOre_v1";
 const SETTINGS = "registroOre_settings";
 
-let records = JSON.parse(localStorage.getItem(KEY) || "[]");
-let settings = JSON.parse(localStorage.getItem(SETTINGS) || '{"weeklyLimit":40}');
+function localDate(){
+ const d=new Date();
+ const y=d.getFullYear();
+ const m=String(d.getMonth()+1).padStart(2,"0");
+ const day=String(d.getDate()).padStart(2,"0");
+ return `${y}-${m}-${day}`;
+}
 
-$("weeklyLimit").value = settings.weeklyLimit;
-$("date").value = new Date().toLocaleDateString("en-CA");
-$("month").value = $("date").value.slice(0,7);
+function readStorage(key,fallback){
+ try{
+  const value=localStorage.getItem(key);
+  return value ? JSON.parse(value) : fallback;
+ }catch(e){
+  return fallback;
+ }
+}
+
+let records=readStorage(KEY,[]);
+let settings=readStorage(SETTINGS,{weeklyLimit:40});
+
+$("weeklyLimit").value=settings.weeklyLimit;
+$("date").value=localDate();
+$("month").value=localDate().slice(0,7);
 
 function save(){
  localStorage.setItem(KEY,JSON.stringify(records));
@@ -123,88 +190,143 @@ function save(){
 }
 
 function duration(r){
- let [sh,sm]=r.start.split(":").map(Number);
- let [eh,em]=r.end.split(":").map(Number);
+ const [sh,sm]=r.start.split(":").map(Number);
+ const [eh,em]=r.end.split(":").map(Number);
+
  let minutes=(eh*60+em)-(sh*60+sm);
+
  if(minutes<0) minutes+=1440;
+
  return Math.max(0,minutes-Number(r.break||0));
 }
 
 function fmt(n){
- return Math.floor(n/60)+":"+String(n%60).padStart(2,"0");
+ return Math.floor(n/60)+":"+
+ String(n%60).padStart(2,"0");
 }
 
 function weekKey(date){
- let d=new Date(date+"T12:00:00");
- let day=(d.getDay()+6)%7;
+ const d=new Date(date+"T12:00:00");
+ const day=(d.getDay()+6)%7;
  d.setDate(d.getDate()-day);
- return d.toISOString().slice(0,10);
+
+ return d.getFullYear()+"-"+
+ String(d.getMonth()+1).padStart(2,"0")+"-"+
+ String(d.getDate()).padStart(2,"0");
 }
 
 function overtimeMap(){
- let groups={};
- [...records].sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start)).forEach(r=>{
-  let k=weekKey(r.date);
+ const groups={};
+
+ const sorted=[...records].sort((a,b)=>
+  a.date.localeCompare(b.date)||
+  a.start.localeCompare(b.start)
+ );
+
+ sorted.forEach(r=>{
+  const k=weekKey(r.date);
+
   if(!groups[k]) groups[k]=0;
-  let before=groups[k];
-  let after=before+duration(r);
-  let limit=Number(settings.weeklyLimit)*60;
-  r._overtime=Math.max(0,after-limit)-Math.max(0,before-limit);
+
+  const before=groups[k];
+  const after=before+duration(r);
+  const limit=Number(settings.weeklyLimit)*60;
+
+  r._overtime=
+   Math.max(0,after-limit)-
+   Math.max(0,before-limit);
+
   groups[k]=after;
  });
- return groups;
 }
 
 function esc(s){
- return String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+ return String(s||"").replace(/[&<>"']/g,c=>({
+  "&":"&amp;",
+  "<":"&lt;",
+  ">":"&gt;",
+  '"':"&quot;",
+  "'":"&#39;"
+ }[c]));
 }
 
 function render(){
- let month=$("month").value;
- let list=records.filter(r=>r.date.startsWith(month))
-  .sort((a,b)=>b.date.localeCompare(a.date)||b.start.localeCompare(a.start));
+ const month=$("month").value;
+
+ const list=records.filter(r=>r.date.startsWith(month))
+  .sort((a,b)=>
+   b.date.localeCompare(a.date)||
+   b.start.localeCompare(a.start)
+  );
 
  overtimeMap();
- let total=list.reduce((s,r)=>s+duration(r),0);
- let ot=list.reduce((s,r)=>s+(r._overtime||0),0);
- let days=new Set(list.map(r=>r.date)).size;
+
+ const total=list.reduce((s,r)=>s+duration(r),0);
+ const ot=list.reduce((s,r)=>s+(r._overtime||0),0);
+ const days=new Set(list.map(r=>r.date)).size;
 
  $("days").textContent=days;
  $("total").textContent=fmt(total);
  $("overtime").textContent=fmt(ot);
  $("average").textContent=fmt(days?Math.round(total/days):0);
+
  $("empty").classList.toggle("hidden",list.length>0);
 
  $("entries").innerHTML=list.map(r=>`
- <div class="entry">
- <div class="entry-top">
- <div><strong>${esc(r.date)}</strong>
- <small>Entrata ${esc(r.start)} · Uscita ${esc(r.end)}</small>
- <small>Pausa ${r.break} min · Totale ${fmt(duration(r))}</small>
- <small>Straordinari ${fmt(r._overtime||0)}</small>
- ${r.notes?`<small>${esc(r.notes)}</small>`:""}
- </div>
- <div>
- <button onclick="editRecord('${r.id}')">✏️</button>
- <button class="danger" onclick="deleteRecord('${r.id}')">✕</button>
- </div>
- </div>
- </div>`).join("");
+  <div class="entry">
+   <div class="entry-top">
+    <div>
+     <strong>${esc(r.date)}</strong>
+     <small>Entrata ${esc(r.start)} · Uscita ${esc(r.end)}</small>
+     <small>Pausa ${r.break} min · Totale ${fmt(duration(r))}</small>
+     <small>Straordinari ${fmt(r._overtime||0)}</small>
+     ${r.notes?`<small>${esc(r.notes)}</small>`:""}
+    </div>
+    <div>
+     <button onclick="editRecord('${r.id}')">✏️</button>
+     <button class="danger" onclick="deleteRecord('${r.id}')">✕</button>
+    </div>
+   </div>
+  </div>
+ `).join("");
 }
 
 $("workForm").addEventListener("submit",e=>{
  e.preventDefault();
- let start=$("start").value,end=$("end").value;
- let br=Number($("break").value);
- if(!start||!end||br<0){alert("Controlla i dati inseriti.");return;}
- let r={
- id:$("editId").value||String(Date.now()),
- date:$("date").value,
- start,end,break:br,notes:$("notes").value
+
+ const start=$("start").value;
+ const end=$("end").value;
+ const br=Number($("break").value);
+
+ if(!start||!end||br<0){
+  alert("Controlla i dati inseriti.");
+  return;
+ }
+
+ const r={
+  id:$("editId").value||String(Date.now()),
+  date:$("date").value,
+  start,
+  end,
+  break:br,
+  notes:$("notes").value
  };
- if(duration(r)<=0){alert("Controlla gli orari e la pausa.");return;}
- let i=records.findIndex(x=>x.id===r.id);
- if(i>=0) records[i]=r; else records.push(r);
+
+ if(!r.date){
+  alert("Inserisci la data.");
+  return;
+ }
+
+ if(duration(r)<=0){
+  alert("Controlla gli orari e la pausa.");
+  return;
+ }
+
+ const i=records.findIndex(x=>x.id===r.id);
+
+ if(i>=0) records[i]=r;
+ else records.push(r);
+
  resetForm();
  save();
 });
@@ -212,44 +334,56 @@ $("workForm").addEventListener("submit",e=>{
 function resetForm(){
  $("workForm").reset();
  $("editId").value="";
- $("date").value=new Date().toLocaleDateString("en-CA");
+ $("date").value=localDate();
  $("break").value=0;
  $("saveButton").textContent="SALVA REGISTRAZIONE";
  $("cancelEdit").classList.add("hidden");
 }
 
 function editRecord(id){
- let r=records.find(x=>x.id===id);
+ const r=records.find(x=>x.id===id);
  if(!r)return;
+
  $("editId").value=r.id;
  $("date").value=r.date;
  $("start").value=r.start;
  $("end").value=r.end;
  $("break").value=r.break;
  $("notes").value=r.notes||"";
+
  $("saveButton").textContent="AGGIORNA REGISTRAZIONE";
  $("cancelEdit").classList.remove("hidden");
+
  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 function deleteRecord(id){
  if(!confirm("Vuoi eliminare questa registrazione?"))return;
+
  records=records.filter(r=>r.id!==id);
  save();
 }
 
 $("cancelEdit").onclick=resetForm;
 $("month").onchange=render;
+
 $("weeklyLimit").onchange=()=>{
- settings.weeklyLimit=Math.max(1,Number($("weeklyLimit").value)||40);
+ settings.weeklyLimit=Math.max(
+  1,
+  Math.min(168,Number($("weeklyLimit").value)||40)
+ );
+
  $("weeklyLimit").value=settings.weeklyLimit;
  save();
 };
 
 function exportRows(){
- let list=records.filter(r=>r.date.startsWith($("month").value))
- .sort((a,b)=>a.date.localeCompare(b.date));
+ const list=records.filter(r=>
+  r.date.startsWith($("month").value)
+ ).sort((a,b)=>a.date.localeCompare(b.date));
+
  overtimeMap();
+
  return list.map(r=>({
   Data:r.date,
   Entrata:r.start,
@@ -261,53 +395,151 @@ function exportRows(){
  }));
 }
 
+function download(content,type,name){
+ const blob=new Blob([content],{type});
+ const url=URL.createObjectURL(blob);
+ const a=document.createElement("a");
+
+ a.href=url;
+ a.download=name;
+ a.click();
+
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
 $("csv").onclick=()=>{
- let rows=exportRows();
- if(!rows.length){alert("Nessun dato da esportare.");return;}
- let keys=Object.keys(rows[0]);
- let csv="\uFEFF"+[keys.join(";"),...rows.map(r=>keys.map(k=>'"'+String(r[k]).replace(/"/g,'""')+'"').join(";"))].join("\n");
+ const rows=exportRows();
+
+ if(!rows.length){
+  alert("Nessun dato da esportare.");
+  return;
+ }
+
+ const keys=Object.keys(rows[0]);
+
+ const csv="\uFEFF"+
+  [keys.join(";"),
+   ...rows.map(r=>
+    keys.map(k=>
+     '"'+String(r[k]).replace(/"/g,'""')+'"'
+    ).join(";")
+   )
+  ].join("\n");
+
  download(csv,"text/csv;charset=utf-8","RegistroOre.csv");
 };
 
 $("excel").onclick=()=>{
- let rows=exportRows();
- if(!rows.length){alert("Nessun dato da esportare.");return;}
- if(!window.XLSX){alert("Per creare Excel devi collegarti a Internet e ricaricare l'app.");return;}
- let wb=XLSX.utils.book_new();
- let ws=XLSX.utils.json_to_sheet(rows);
+ const rows=exportRows();
+
+ if(!rows.length){
+  alert("Nessun dato da esportare.");
+  return;
+ }
+
+ if(!window.XLSX){
+  alert("La libreria Excel non è disponibile. Collegati a Internet e riprova.");
+  return;
+ }
+
+ const wb=XLSX.utils.book_new();
+ const ws=XLSX.utils.json_to_sheet(rows);
+
  XLSX.utils.book_append_sheet(wb,ws,"Registro Ore");
  XLSX.writeFile(wb,"RegistroOre.xlsx");
 };
 
 $("pdf").onclick=()=>{
- let rows=exportRows();
- if(!rows.length){alert("Nessun dato da esportare.");return;}
- let w=window.open("","_blank");
- if(!w){alert("Consenti l'apertura della finestra di stampa.");return;}
- w.document.write(`<html><head><title>Registro Ore</title>
- <style>body{font-family:Arial;padding:20px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #aaa;padding:7px;text-align:left}h2{margin-bottom:20px}</style>
- </head><body><h2>Registro Ore - ${esc($("month").value)}</h2>
- <table><tr><th>Data</th><th>Entrata</th><th>Uscita</th><th>Pausa</th><th>Ore</th><th>Extra</th><th>Note</th></tr>
- ${rows.map(r=>`<tr><td>${esc(r.Data)}</td><td>${esc(r.Entrata)}</td><td>${esc(r.Uscita)}</td><td>${r.Pausa_minuti}</td><td>${r.Ore_lavorate}</td><td>${r.Straordinari}</td><td>${esc(r.Note)}</td></tr>`).join("")}
- </table></body></html>`);
+ const rows=exportRows();
+
+ if(!rows.length){
+  alert("Nessun dato da esportare.");
+  return;
+ }
+
+ const w=window.open("","_blank");
+
+ if(!w){
+  alert("Consenti l'apertura della finestra di stampa.");
+  return;
+ }
+
+ w.document.write(`
+  <html>
+  <head>
+   <title>Registro Ore</title>
+   <style>
+    body{font-family:Arial;padding:20px}
+    table{border-collapse:collapse;width:100%}
+    td,th{border:1px solid #aaa;padding:7px;text-align:left}
+   </style>
+  </head>
+  <body>
+   <h2>Registro Ore - ${esc($("month").value)}</h2>
+   <table>
+    <tr>
+     <th>Data</th><th>Entrata</th><th>Uscita</th>
+     <th>Pausa</th><th>Ore</th><th>Extra</th><th>Note</th>
+    </tr>
+    ${rows.map(r=>`
+     <tr>
+      <td>${esc(r.Data)}</td>
+      <td>${esc(r.Entrata)}</td>
+      <td>${esc(r.Uscita)}</td>
+      <td>${r.Pausa_minuti}</td>
+      <td>${r.Ore_lavorate}</td>
+      <td>${r.Straordinari}</td>
+      <td>${esc(r.Note)}</td>
+     </tr>
+    `).join("")}
+   </table>
+  </body>
+  </html>
+ `);
+
  w.document.close();
  w.print();
 };
 
 $("backup").onclick=()=>{
- download(JSON.stringify({records,settings},null,2),"application/json","RegistroOre-backup.json");
+ const data={
+  records,
+  settings
+ };
+
+ download(
+  JSON.stringify(data,null,2),
+  "application/json",
+  "RegistroOre-backup.json"
+ );
 };
 
-function download(content,type,name){
- let blob=new Blob([content],{type});
- let url=URL.createObjectURL(blob);
- let a=document.createElement("a");
- a.href=url;a.download=name;a.click();
- URL.revokeObjectURL(url);
+function updateConnection(){
+ $("connectionStatus").textContent=
+  navigator.onLine
+   ? "● Connessione disponibile"
+   : "● Modalità offline";
 }
 
-render();
-</script>
-</body>
-  </html>
+window.addEventListener("online",updateConnection);
+window.addEventListener("offline",updateConnection);
 
+updateConnection();
+render();
+
+// ATTIVAZIONE DEL SISTEMA OFFLINE
+if("serviceWorker" in navigator){
+ window.addEventListener("load",()=>{
+  navigator.serviceWorker.register("./service-worker.js")
+   .then(()=>{
+    console.log("Sistema offline attivato.");
+   })
+   .catch(error=>{
+    console.error("Errore sistema offline:",error);
+   });
+ });
+}
+</script>
+
+</body>
+</html>
