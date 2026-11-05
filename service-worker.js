@@ -1,9 +1,11 @@
 
-const CACHE_NAME = "registro-ore-v1";
+const CACHE_NAME = "registro-ore-v2";
 
 const FILES = [
   "./",
-  "./index.html"
+  "./index.html",
+  "./manifest.json",
+  "./icon.svg"
 ];
 
 self.addEventListener("install", event => {
