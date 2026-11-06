@@ -1,4 +1,4 @@
-const CACHE_NAME = "registro-ore-v4";
+const CACHE_NAME = "registro-ore-v5";
 const XLSX_URL = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
 
 const FILES = [
